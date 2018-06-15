@@ -11,13 +11,10 @@ struct AVPacket;
 struct AVFrame;
 struct SwsContext;
 struct AVCodecContext;
+struct AVCodecParameters;
 class McoAVTool
 {
 public:
-    int width = 0;
-    int height = 0;
-    int duration = 0;
-    int fps = 0;
     McoAVTool();
     /*
      * 打开媒体文件
@@ -30,6 +27,7 @@ public:
      * 0-success;-1-error
     */
     bool openCodec();
+	bool openCodecFromParamters(AVCodecParameters *par);
 
     /*
      * 读取媒体文件
@@ -65,8 +63,19 @@ public:
     */
     bool getRGB(char *outdata,int width,int height);
 
+	qint64 getNextVideoTime();
+	qint64 getNextAudioTime();
+	qint64 getNextTime();
+
     string getErrorInfo();
+
+	int getWidth();
+	int getHeight();
+	int getDuration();
+	int getFps();
+
 private:
+	void clearPacketLists(QList<AVPacket *> *l);
     QMutex mutex;
     AVFormatContext *ps = NULL;//封装的上下文
     SwsContext *swsCtx;//转码器
@@ -75,9 +84,15 @@ private:
     char errorBuff[1024];//错误信息数组
     int videoStream = -1;
     int audioStream = -1;
+	int width = 0;
+	int height = 0;
+	int duration = 0;
+	int fps = 0;
     AVPacket *pkt = NULL;
     AVFrame *vFrame = NULL;
     AVFrame *aFrame = NULL;
+	QList<AVPacket *> videoPacketList;
+	QList<AVPacket *> audioPacketList;
 };
 
 #endif // MCOAVTOOL_H

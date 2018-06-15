@@ -32,10 +32,11 @@ void Thread::run()
 	while (!isExited)
 	{
 		while (isSuspend);
+		int vl, al;
+		if (!tool.readPacketsToBuff(20,&vl,&al)) return;
+		time = tool.getNextVideoTime();
 
-		if (!tool.readPacket(&isVideo,&time)) return;
-
-		if (isVideo)
+		if (time != -1)
 		{
 			qint64 temp = av_gettime() / 1000;
 			temp -= startTime;
@@ -44,10 +45,9 @@ void Thread::run()
 		}
 		
 
-		tool.decoder(&isVideo);
+		tool.autoDecoder(&isVideo);
 		
 	}
-	
 
 }
 
@@ -56,10 +56,10 @@ bool Thread::openAVFile(const char * url)
 	bool ok = tool.openAVFile(url);
 	if (ok)
 	{
-		width = tool.width;
-		height = tool.height;
-		fps = tool.fps;
-		duration = tool.duration;
+		width = tool.getWidth();
+		height = tool.getHeight();
+		fps = tool.getFps();
+		duration = tool.getDuration();
 	}
 	isExited = false;
 	return ok;

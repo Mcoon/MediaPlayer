@@ -29,9 +29,9 @@ void McoGLWidget::resizeEvent(QResizeEvent * e)
 	if (image)
 	{
 		timer->stop();
-
+		thread.suspend(true);
 		updateImage();
-
+		thread.suspend(false);
 		timer->start(1000 / thread.fps);
 		play();
 	}
@@ -60,10 +60,13 @@ void McoGLWidget::saveScreenShot(char * saveurl)
 		QMessageBox::critical(this, "save error", "please play the video first", "ok");
 		return;
 	}
+	timer->stop();
 	suspend(true);
 	if (image->save(saveurl)) QMessageBox::information(this,"save success","success","ok");
 	else QMessageBox::critical(this,"save error", "error,try again", "ok");
 	suspend(false);
+	timer->start(1000 / thread.fps);
+	play();
 }
 
 void McoGLWidget::updateImage()

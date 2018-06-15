@@ -6,6 +6,8 @@ extern "C"
     #include <libavcodec/avcodec.h>
     #include <libswscale/swscale.h>
 }
+
+
 #pragma comment(lib,"avformat.lib")
 #pragma comment(lib,"avcodec.lib")
 #pragma comment(lib,"avutil.lib")
@@ -80,55 +82,64 @@ bool McoAVTool::openCodec()
 
     if(videoStream != -1)
     {
-        AVCodec *codec = NULL;
-        codec = avcodec_find_decoder(ps->streams[videoStream]->codecpar->codec_id);
-
-		if (vCodecContext) avcodec_free_context(&vCodecContext);
-		vCodecContext = avcodec_alloc_context3(codec);
-		int re = avcodec_parameters_to_context(vCodecContext, ps->streams[videoStream]->codecpar);
-		if (re < 0)
+		if (!openCodecFromParamters(ps->streams[videoStream]->codecpar))
 		{
-			strcpy(errorBuff, "vCodecContext copy error!");
 			mutex.unlock();
 			return false;
 		}
-		vCodecContext->thread_count = 8;
-
-        re = avcodec_open2(vCodecContext,codec,NULL);
-        if(re != 0)
-        {
-            av_strerror(re,errorBuff,sizeof(errorBuff));
-            mutex.unlock();
-            return false;
-        }
     }
     if(audioStream != -1)
     {
-        AVCodec *codec = NULL;
-        codec = avcodec_find_decoder(ps->streams[audioStream]->codecpar->codec_id);
-
-		if (aCodecContext) avcodec_free_context(&aCodecContext);
-		aCodecContext = avcodec_alloc_context3(codec);
-		int re = avcodec_parameters_to_context(aCodecContext, ps->streams[audioStream]->codecpar);
-		if (re < 0)
+		if (!openCodecFromParamters(ps->streams[audioStream]->codecpar))
 		{
-			strcpy(errorBuff, "aCodecContext copy error!");
 			mutex.unlock();
 			return false;
 		}
-		aCodecContext->thread_count = 8;
-
-        re = avcodec_open2(aCodecContext,codec,NULL);
-        if(re != 0)
-        {
-            av_strerror(re,errorBuff,sizeof(errorBuff));
-            mutex.unlock();
-            return false;
-        }
     }
 
     mutex.unlock();
     return true;
+}
+
+bool McoAVTool::openCodecFromParamters(AVCodecParameters * par)
+{
+	AVCodec *codec = NULL;
+	codec = avcodec_find_decoder(par->codec_id);
+	AVCodecContext *tempCtx;
+	if (par->codec_type == AVMEDIA_TYPE_VIDEO)
+	{
+		if (vCodecContext) avcodec_free_context(&vCodecContext);
+		vCodecContext = avcodec_alloc_context3(codec);
+		tempCtx = vCodecContext;
+	}
+	else if (par->codec_type == AVMEDIA_TYPE_AUDIO)
+	{
+		if (aCodecContext) avcodec_free_context(&aCodecContext);
+		aCodecContext = avcodec_alloc_context3(codec);
+		tempCtx = aCodecContext;
+	}
+	else
+	{
+		return false;
+	}
+
+	
+	int re = avcodec_parameters_to_context(tempCtx, par);
+	if (re < 0)
+	{
+		strcpy(errorBuff, "vCodecContext copy error!");
+		return false;
+	}
+	tempCtx->thread_count = 8;
+
+	re = avcodec_open2(tempCtx, codec, NULL);
+	if (re != 0)
+	{
+		av_strerror(re, errorBuff, sizeof(errorBuff));
+		return false;
+	}
+
+	return true;
 }
 
 bool McoAVTool::readPacket(bool *pktIsVideo, qint64 *time)
@@ -160,9 +171,70 @@ bool McoAVTool::readPacket(bool *pktIsVideo, qint64 *time)
     return true;
 }
 
+bool McoAVTool::readPacketsToBuff(int len, int * vl, int * al)
+{
+	mutex.lock();
+	if (!ps)
+	{
+		strcpy(errorBuff, "stream is not opened!");
+		mutex.unlock();
+		return false;
+	}
+	if (len <= 0 || vl == NULL || al == NULL)
+	{
+		strcpy(errorBuff, "Incorrect input!");
+		mutex.unlock();
+		return false;
+	}
+
+	if (videoPacketList.length() >= len || audioPacketList.length() >= len)
+	{
+		*vl = videoPacketList.length();
+		*al = audioPacketList.length();
+		mutex.unlock();
+		return true;
+	}
+
+	while ((videoPacketList.length() < len) && (audioPacketList.length() < len))
+	{
+		AVPacket *tempPacket = av_packet_alloc();
+		int re = av_read_frame(ps, tempPacket);
+		if (re != 0)
+		{
+			if (videoPacketList.isEmpty() && audioPacketList.isEmpty())
+			{
+				av_strerror(re, errorBuff, sizeof(errorBuff));
+				mutex.unlock();
+				return false;
+			}
+			else
+			{
+				*vl = videoPacketList.length();
+				*al = audioPacketList.length();
+				mutex.unlock();
+				return true;
+			}
+		}
+
+		if (tempPacket->stream_index == videoStream) videoPacketList.push_back(tempPacket);
+		else if (tempPacket->stream_index == audioStream) audioPacketList.push_back(tempPacket);
+		else av_packet_free(&tempPacket);
+	}
+
+	*vl = videoPacketList.length();
+	*al = audioPacketList.length();
+	
+	mutex.unlock();
+	return true;
+}
+
 void McoAVTool::closeAVFile()
 {
     mutex.lock();
+
+	clearPacketLists(&videoPacketList);
+	clearPacketLists(&audioPacketList);
+
 	if (ps) 
 		avformat_close_input(&ps);    
 	if (pkt)
@@ -284,6 +356,100 @@ bool McoAVTool::decoder(bool *pktIsVideo)
     return true;
 }
 
+bool McoAVTool::autoDecoder(bool * pktIsVideo)
+{
+	mutex.lock();
+
+	if (!ps)
+	{
+		strcpy(errorBuff, "stream is not opened!");
+		mutex.unlock();
+		return false;
+	}
+	if (pktIsVideo == NULL)
+	{
+		strcpy(errorBuff, "Incorrect input!");
+		mutex.unlock();
+		return false;
+	}
+	if (videoPacketList.isEmpty() && audioPacketList.isEmpty())
+	{
+		mutex.unlock();
+		return false;
+	}
+
+	qint64 vtime = getNextVideoTime();
+	qint64 atime = getNextAudioTime();
+
+	if ((vtime < atime && vtime != -1) || atime == -1)
+	{
+		if (!vCodecContext)
+		{
+			mutex.unlock();
+			openCodec();
+			
+			return false;
+		}
+		//解码视频
+		int re = avcodec_send_packet(vCodecContext,videoPacketList.at(0));
+		av_packet_unref(videoPacketList.at(0));
+		videoPacketList.pop_front();
+		if (re != 0)
+		{
+			av_strerror(re, errorBuff, sizeof(errorBuff));
+			mutex.unlock();
+			return false;
+		}
+		if (vFrame) av_frame_free(&vFrame);
+		vFrame = av_frame_alloc();
+		re = avcodec_receive_frame(vCodecContext,vFrame);
+		if (re != 0)
+		{
+			av_strerror(re, errorBuff, sizeof(errorBuff));
+			mutex.unlock();
+			return false;
+		}
+		*pktIsVideo = true;
+	}
+	else if ((atime <= vtime && atime != -1) || vtime == -1)
+	{
+		if (!aCodecContext)
+		{
+			mutex.unlock();
+			openCodec();
+			return false;
+		}
+		//解码音频
+		int re = avcodec_send_packet(aCodecContext, audioPacketList.at(0));
+		av_packet_unref(audioPacketList.at(0));
+		audioPacketList.pop_front();
+		if (re != 0)
+		{
+			av_strerror(re, errorBuff, sizeof(errorBuff));
+			mutex.unlock();
+			return false;
+		}
+		if (aFrame) av_frame_free(&aFrame);
+		aFrame = av_frame_alloc();
+		re = avcodec_receive_frame(aCodecContext, aFrame);
+		if (re != 0)
+		{
+			av_strerror(re, errorBuff, sizeof(errorBuff));
+			mutex.unlock();
+			return false;
+		}
+		*pktIsVideo = false;
+	}
+	else
+	{
+		mutex.unlock();
+		return false;
+	}
+
+	mutex.unlock();
+	return true;
+}
+
 bool McoAVTool::getRGB(char *outdata, int width, int height)
 {
     mutex.lock();
@@ -298,18 +464,6 @@ bool McoAVTool::getRGB(char *outdata, int width, int height)
 	if (!vFrame)
 	{
 		strcpy(errorBuff, "vFrame is not existed!");
-		mutex.unlock();
-		return false;
-	}
-	if (!pkt)
-	{
-		strcpy(errorBuff, "stream is not opened!");
-		mutex.unlock();
-		return false;
-	}
-	if (pkt->size < 0)
-	{
-		strcpy(errorBuff, "stream is not opened!");
 		mutex.unlock();
 		return false;
 	}
@@ -338,9 +492,55 @@ bool McoAVTool::getRGB(char *outdata, int width, int height)
         mutex.unlock();
         return false;
     }
-
+	
     mutex.unlock();
     return true;
+}
+
+qint64 McoAVTool::getNextVideoTime()
+{
+	if (videoPacketList.isEmpty()) return -1;
+	qint64 t = videoPacketList.at(0)->pts * r2d(&ps->streams[videoPacketList.at(0)->stream_index]->time_base) * 1000;
+	return t;
+}
+
+qint64 McoAVTool::getNextAudioTime()
+{
+	if (audioPacketList.isEmpty()) return -1;
+	qint64 t = audioPacketList.at(0)->pts * r2d(&ps->streams[audioPacketList.at(0)->stream_index]->time_base) * 1000;
+	return t;
+}
+
+qint64 McoAVTool::getNextTime()
+{
+	mutex.lock();
+
+	qint64 vtime = getNextVideoTime();
+	qint64 atime = getNextAudioTime();
+	if (atime == -1 && vtime == -1)
+	{
+		mutex.unlock();
+		return -1;
+	}
+
+	if ((vtime < atime && vtime != -1) || (atime == -1))
+	{
+		mutex.unlock();
+		return vtime;
+	}
+	else if ((atime <= vtime && atime != -1) || vtime == -1)
+	{
+		mutex.unlock();
+		return atime;
+	}
+	else
+	{
+		mutex.unlock();
+		return -1;
+	}
+
+	mutex.unlock();
+	return -1;
 }
 
 string McoAVTool::getErrorInfo()
@@ -349,4 +549,34 @@ string McoAVTool::getErrorInfo()
     string str = errorBuff;
     mutex.unlock();
     return str;
+}
+
+int McoAVTool::getWidth()
+{
+	return width;
+}
+
+int McoAVTool::getHeight()
+{
+	return height;
+}
+
+int McoAVTool::getDuration()
+{
+	return duration;
+}
+
+int McoAVTool::getFps()
+{
+	return fps;
+}
+
+void McoAVTool::clearPacketLists(QList<AVPacket*>* l)
+{
+	while (!l->isEmpty())
+	{
+		av_packet_unref(l->at(0));
+		l->pop_front();
+	}
+	l->clear();
 }
