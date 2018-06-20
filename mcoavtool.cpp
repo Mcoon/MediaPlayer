@@ -2,16 +2,16 @@
 #include "mcosuper.h"
 extern "C"
 {
-    #include <libavformat/avformat.h>
-    #include <libavcodec/avcodec.h>
-    #include <libswscale/swscale.h>
+	#include <libavformat/avformat.h>
+	#include <libavcodec/avcodec.h>
+	#include <libswscale/swscale.h>
+	#include <libswresample/swresample.h>
 }
-
-
 #pragma comment(lib,"avformat.lib")
 #pragma comment(lib,"avcodec.lib")
 #pragma comment(lib,"avutil.lib")
 #pragma comment(lib,"swscale.lib")
+#pragma comment(lib,"swresample.lib")
 McoAVTool::McoAVTool()
 {
     McoSuper::getObject();
@@ -28,19 +28,19 @@ static double r2d(AVRational *r)
 bool McoAVTool::openAVFile(const char *url)
 {
     closeAVFile();
-    mutex.lock();
+    lock.lock();
     int re = avformat_open_input(&ps, url, NULL, NULL);
     if(re != 0)
     {
 		av_strerror(re, errorBuff, sizeof(errorBuff));
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
     re = avformat_find_stream_info(ps,NULL);
     if(re<0)
     {
         av_strerror(re,errorBuff,sizeof(errorBuff));
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
     videoStream = av_find_best_stream(ps,AVMEDIA_TYPE_VIDEO,-1,-1,NULL,0);
@@ -52,31 +52,36 @@ bool McoAVTool::openAVFile(const char *url)
     if(videoStream == -1 && audioStream == -1)
     {
         strcpy(errorBuff,"video is empty!");
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
     if(videoStream != -1)
     {
-        width = ps->streams[videoStream]->codecpar->width;
-        height =  ps->streams[videoStream]->codecpar->height;
-        fps = r2d(&ps->streams[videoStream]->avg_frame_rate);
+		width = ps->streams[videoStream]->codecpar->width;
+		height = ps->streams[videoStream]->codecpar->height;
+		fps = r2d(&ps->streams[videoStream]->avg_frame_rate);
        
     }
-
+	if (audioStream != -1)
+	{
+		sampleRate = ps->streams[audioStream]->codecpar->sample_rate;
+		channels = ps->streams[audioStream]->codecpar->channels;
+		channelLayout = ps->streams[audioStream]->codecpar->channel_layout;
+	}
 	duration = ps->duration / (AV_TIME_BASE / 1000);//毫秒
 
-    mutex.unlock();
+    lock.unlock();
     return true;
 }
 
 bool McoAVTool::openCodec()
 {
-    mutex.lock();
+    lock.lock();
 
     if(!ps)
     {
         strcpy(errorBuff,"stream is not opened!");
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
 
@@ -84,7 +89,7 @@ bool McoAVTool::openCodec()
     {
 		if (!openCodecFromParamters(ps->streams[videoStream]->codecpar))
 		{
-			mutex.unlock();
+			lock.unlock();
 			return false;
 		}
     }
@@ -92,12 +97,12 @@ bool McoAVTool::openCodec()
     {
 		if (!openCodecFromParamters(ps->streams[audioStream]->codecpar))
 		{
-			mutex.unlock();
+			lock.unlock();
 			return false;
 		}
     }
 
-    mutex.unlock();
+    lock.unlock();
     return true;
 }
 
@@ -144,12 +149,12 @@ bool McoAVTool::openCodecFromParamters(AVCodecParameters * par)
 
 bool McoAVTool::readPacket(bool *pktIsVideo, qint64 *time)
 {
-    mutex.lock();
+    lock.lock();
 
     if(!ps)
     {
         strcpy(errorBuff,"stream is not opened!");
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
     if(!pkt)
@@ -159,7 +164,7 @@ bool McoAVTool::readPacket(bool *pktIsVideo, qint64 *time)
     if(re != 0)
     {
         av_strerror(re,errorBuff,sizeof(errorBuff));
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
 	if (pkt->stream_index == videoStream) *pktIsVideo = true;
@@ -167,23 +172,23 @@ bool McoAVTool::readPacket(bool *pktIsVideo, qint64 *time)
 
 	*time = pkt->pts * r2d(&ps->streams[pkt->stream_index]->time_base) * 1000;
 
-    mutex.unlock();
+    lock.unlock();
     return true;
 }
 
 bool McoAVTool::readPacketsToBuff(int len, int * vl, int * al)
 {
-	mutex.lock();
+	lock.lock();
 	if (!ps)
 	{
 		strcpy(errorBuff, "stream is not opened!");
-		mutex.unlock();
+		lock.unlock();
 		return false;
 	}
 	if (len <= 0 || vl == NULL || al == NULL)
 	{
 		strcpy(errorBuff, "Incorrect input!");
-		mutex.unlock();
+		lock.unlock();
 		return false;
 	}
 
@@ -191,7 +196,7 @@ bool McoAVTool::readPacketsToBuff(int len, int * vl, int * al)
 	{
 		*vl = videoPacketList.length();
 		*al = audioPacketList.length();
-		mutex.unlock();
+		lock.unlock();
 		return true;
 	}
 
@@ -204,14 +209,16 @@ bool McoAVTool::readPacketsToBuff(int len, int * vl, int * al)
 			if (videoPacketList.isEmpty() && audioPacketList.isEmpty())
 			{
 				av_strerror(re, errorBuff, sizeof(errorBuff));
-				mutex.unlock();
+				av_packet_free(&tempPacket);
+				lock.unlock();
 				return false;
 			}
 			else
 			{
 				*vl = videoPacketList.length();
 				*al = audioPacketList.length();
-				mutex.unlock();
+				av_packet_free(&tempPacket);
+				lock.unlock();
 				return true;
 			}
 		}
@@ -224,13 +231,13 @@ bool McoAVTool::readPacketsToBuff(int len, int * vl, int * al)
 	*vl = videoPacketList.length();
 	*al = audioPacketList.length();
 	
-	mutex.unlock();
+	lock.unlock();
 	return true;
 }
 
 void McoAVTool::closeAVFile()
 {
-    mutex.lock();
+    lock.lock();
 
 	clearPacketLists(&videoPacketList);
 	clearPacketLists(&audioPacketList);
@@ -253,8 +260,6 @@ void McoAVTool::closeAVFile()
 		swsCtx = NULL;
 	}
 
-
-
     memset(errorBuff,0,sizeof(errorBuff));
     videoStream = -1;
     audioStream = -1;
@@ -262,24 +267,27 @@ void McoAVTool::closeAVFile()
     height = 0;
     duration = 0;
     fps = 0;
-    mutex.unlock();
+	sampleRate = 0;
+	channels = 0;
+	speed = 1;
+    lock.unlock();
 }
 
 bool McoAVTool::decoder(bool *pktIsVideo)
 {
-    mutex.lock();
+    lock.lock();
 
     if(!ps)
     {
         strcpy(errorBuff,"stream is not opened!");
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
 
     if(!pkt)
     {
         strcpy(errorBuff,"stream don`t read!");
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
 
@@ -287,7 +295,7 @@ bool McoAVTool::decoder(bool *pktIsVideo)
     {
         strcpy(errorBuff,"pkt error!");
         av_packet_free(&pkt);
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
 
@@ -304,7 +312,7 @@ bool McoAVTool::decoder(bool *pktIsVideo)
 	{
 		strcpy(errorBuff, "tempCodecContex error!");
 		av_packet_free(&pkt);
-		mutex.unlock();
+		lock.unlock();
 		return false;
 	}
 
@@ -313,7 +321,7 @@ bool McoAVTool::decoder(bool *pktIsVideo)
     {
         strcpy(errorBuff,"pkt send error!");
         av_packet_free(&pkt);
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
 
@@ -344,7 +352,7 @@ bool McoAVTool::decoder(bool *pktIsVideo)
         else
             strcpy(errorBuff,"pkt receive error!");
         av_packet_free(&pkt);
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
 
@@ -352,29 +360,29 @@ bool McoAVTool::decoder(bool *pktIsVideo)
 
     //av_packet_free(&pkt);
 
-    mutex.unlock();
+    lock.unlock();
     return true;
 }
 
 bool McoAVTool::autoDecoder(bool * pktIsVideo)
 {
-	mutex.lock();
+	lock.lock();
 
 	if (!ps)
 	{
 		strcpy(errorBuff, "stream is not opened!");
-		mutex.unlock();
+		lock.unlock();
 		return false;
 	}
 	if (pktIsVideo == NULL)
 	{
 		strcpy(errorBuff, "Incorrect input!");
-		mutex.unlock();
+		lock.unlock();
 		return false;
 	}
 	if (videoPacketList.isEmpty() && audioPacketList.isEmpty())
 	{
-		mutex.unlock();
+		lock.unlock();
 		return false;
 	}
 
@@ -385,19 +393,20 @@ bool McoAVTool::autoDecoder(bool * pktIsVideo)
 	{
 		if (!vCodecContext)
 		{
-			mutex.unlock();
+			lock.unlock();
 			openCodec();
 			
 			return false;
 		}
 		//解码视频
-		int re = avcodec_send_packet(vCodecContext,videoPacketList.at(0));
-		av_packet_unref(videoPacketList.at(0));
+		AVPacket *t = videoPacketList.at(0);
+		int re = avcodec_send_packet(vCodecContext,t);
+		av_packet_free(&t);
 		videoPacketList.pop_front();
 		if (re != 0)
 		{
 			av_strerror(re, errorBuff, sizeof(errorBuff));
-			mutex.unlock();
+			lock.unlock();
 			return false;
 		}
 		if (vFrame) av_frame_free(&vFrame);
@@ -406,7 +415,7 @@ bool McoAVTool::autoDecoder(bool * pktIsVideo)
 		if (re != 0)
 		{
 			av_strerror(re, errorBuff, sizeof(errorBuff));
-			mutex.unlock();
+			lock.unlock();
 			return false;
 		}
 		*pktIsVideo = true;
@@ -415,18 +424,19 @@ bool McoAVTool::autoDecoder(bool * pktIsVideo)
 	{
 		if (!aCodecContext)
 		{
-			mutex.unlock();
+			lock.unlock();
 			openCodec();
 			return false;
 		}
 		//解码音频
-		int re = avcodec_send_packet(aCodecContext, audioPacketList.at(0));
-		av_packet_unref(audioPacketList.at(0));
+		AVPacket *t = audioPacketList.at(0);
+		int re = avcodec_send_packet(aCodecContext,t);
+		av_packet_free(&t);
 		audioPacketList.pop_front();
 		if (re != 0)
 		{
 			av_strerror(re, errorBuff, sizeof(errorBuff));
-			mutex.unlock();
+			lock.unlock();
 			return false;
 		}
 		if (aFrame) av_frame_free(&aFrame);
@@ -435,36 +445,43 @@ bool McoAVTool::autoDecoder(bool * pktIsVideo)
 		if (re != 0)
 		{
 			av_strerror(re, errorBuff, sizeof(errorBuff));
-			mutex.unlock();
+			lock.unlock();
 			return false;
 		}
 		*pktIsVideo = false;
 	}
 	else
 	{
-		mutex.unlock();
+		lock.unlock();
 		return false;
 	}
 
-	mutex.unlock();
+	lock.unlock();
 	return true;
 }
 
 bool McoAVTool::getRGB(char *outdata, int width, int height)
 {
-    mutex.lock();
+    lock.lock();
 
 	if (!ps)
 	{
 		strcpy(errorBuff, "stream is not opened!");
-		mutex.unlock();
+		lock.unlock();
 		return false;
 	}
 
 	if (!vFrame)
 	{
 		strcpy(errorBuff, "vFrame is not existed!");
-		mutex.unlock();
+		lock.unlock();
+		return false;
+	}
+
+	if (vFrame->width <= 0 || vFrame->height <= 0)
+	{
+		strcpy(errorBuff, "Image is not ready!");
+		lock.unlock();
 		return false;
 	}
 
@@ -473,7 +490,7 @@ bool McoAVTool::getRGB(char *outdata, int width, int height)
     if(!swsCtx)
     {
         strcpy(errorBuff,"get cached context error!");
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
 
@@ -489,12 +506,106 @@ bool McoAVTool::getRGB(char *outdata, int width, int height)
     if(h <= 0)
     {
         strcpy(errorBuff,"scale error!");
-        mutex.unlock();
+        lock.unlock();
         return false;
     }
 	
-    mutex.unlock();
+	
+    lock.unlock();
     return true;
+}
+
+long long McoAVTool::getPCM(char * outdata, int len)
+{
+	lock.lock();
+
+	if (!ps || !aFrame || !aCodecContext)
+	{
+		strcpy(errorBuff, "stream is not opened!");
+		lock.unlock();
+		return 0;
+	}
+	if (outdata == NULL || len <= 0)
+	{
+		strcpy(errorBuff, "Incorrent input!");
+		lock.unlock();
+		return 0;
+	}
+
+	swrCtx = swr_alloc_set_opts(swrCtx,channelLayout,AV_SAMPLE_FMT_S16,(double)sampleRate * speed,
+		aFrame->channel_layout, (AVSampleFormat)aFrame->format, (double)aFrame->sample_rate * speed,0,NULL);
+	if (!swrCtx)
+	{
+		strcpy(errorBuff, "get cached context error!");
+		lock.unlock();
+		return 0;
+	}
+	swr_init(swrCtx);
+
+	//转码输出空间
+	uint8_t *data[1] = { 0 };
+	data[0] = (uint8_t*)outdata;
+	
+	int l =swr_convert(swrCtx, data, len, (const uint8_t **)aFrame->data, aFrame->nb_samples);
+	if (l <= 0)
+	{
+		lock.unlock();
+		return 0;
+	}
+
+	long long outSize = av_samples_get_buffer_size(NULL,aFrame->channels,aFrame->nb_samples,AV_SAMPLE_FMT_S16,0);
+
+	av_frame_free(&aFrame);
+
+	lock.unlock();
+	return outSize;
+}
+
+bool McoAVTool::seek(double pos)
+{
+	lock.lock();
+	if (!ps)
+	{
+		strcpy(errorBuff, "stream is not ready!");
+		lock.unlock();
+		return false;
+	}
+
+	if (duration <= 0)
+	{
+		strcpy(errorBuff, "Media is network stream!");
+		lock.unlock();
+		return false;
+	}
+
+	if (pos < 0) pos = 0;
+	else if (pos > 1) pos = 1;
+
+	int64_t temp = 0;
+	temp = ps->duration * pos;
+
+	int re = av_seek_frame(ps, -1,
+		temp,
+		AVSEEK_FLAG_BACKWARD |
+		AVSEEK_FLAG_FRAME);
+	if (re < 0)
+	{
+		strcpy(errorBuff, "Seek error!");
+		lock.unlock();
+		return false;
+	}
+
+	if (vCodecContext)
+		avcodec_flush_buffers(vCodecContext);
+	if (aCodecContext)
+		avcodec_flush_buffers(aCodecContext);
+
+	clearPacketLists(&videoPacketList);
+	clearPacketLists(&audioPacketList);
+
+	lock.unlock();
+	return true;
+
 }
 
 qint64 McoAVTool::getNextVideoTime()
@@ -513,41 +624,41 @@ qint64 McoAVTool::getNextAudioTime()
 
 qint64 McoAVTool::getNextTime()
 {
-	mutex.lock();
+	lock.lock();
 
 	qint64 vtime = getNextVideoTime();
 	qint64 atime = getNextAudioTime();
 	if (atime == -1 && vtime == -1)
 	{
-		mutex.unlock();
+		lock.unlock();
 		return -1;
 	}
 
 	if ((vtime < atime && vtime != -1) || (atime == -1))
 	{
-		mutex.unlock();
+		lock.unlock();
 		return vtime;
 	}
 	else if ((atime <= vtime && atime != -1) || vtime == -1)
 	{
-		mutex.unlock();
+		lock.unlock();
 		return atime;
 	}
 	else
 	{
-		mutex.unlock();
+		lock.unlock();
 		return -1;
 	}
 
-	mutex.unlock();
+	lock.unlock();
 	return -1;
 }
 
 string McoAVTool::getErrorInfo()
 {
-    mutex.lock();
+    lock.lock();
     string str = errorBuff;
-    mutex.unlock();
+    lock.unlock();
     return str;
 }
 
@@ -571,11 +682,43 @@ int McoAVTool::getFps()
 	return fps;
 }
 
+int McoAVTool::getChannels()
+{
+	return channels;
+}
+
+int McoAVTool::getSampleRate()
+{
+	return (double)sampleRate * speed;
+}
+
+int McoAVTool::getVideoStream()
+{
+	return videoStream;
+}
+
+int McoAVTool::getAudioStream()
+{
+	return audioStream;
+}
+
+double McoAVTool::getSpeed()
+{
+	return speed;
+}
+
+void McoAVTool::setSpeed(double s)
+{
+	speed = s;
+}
+
 void McoAVTool::clearPacketLists(QList<AVPacket*>* l)
 {
+	AVPacket *t = NULL;
 	while (!l->isEmpty())
 	{
-		av_packet_unref(l->at(0));
+		t = l->at(0);
+		av_packet_free(&t);
 		l->pop_front();
 	}
 	l->clear();

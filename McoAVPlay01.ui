@@ -6,53 +6,440 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>600</width>
-    <height>388</height>
+    <width>672</width>
+    <height>488</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>McoAVPlay01</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0" colspan="5">
-    <widget class="McoGLWidget" name="openGLWidget"/>
-   </item>
-   <item row="1" column="0">
-    <widget class="QPushButton" name="playBtn">
-     <property name="text">
-      <string>开始播放</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="1">
-    <widget class="QPushButton" name="continueBtn">
-     <property name="text">
-      <string>播放</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="2">
-    <widget class="QPushButton" name="suspendBtn">
-     <property name="text">
-      <string>暂停</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="3">
-    <widget class="QPushButton" name="screenShotBtn">
-     <property name="text">
-      <string>截图</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="4">
-    <widget class="QPushButton" name="openBtn">
-     <property name="text">
-      <string>打开文件</string>
-     </property>
-    </widget>
-   </item>
-  </layout>
+  <widget class="McoGLWidget" name="openGLWidget">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>601</width>
+     <height>391</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">McoGLWidget:focus QPushButton{
+border-color: #606060;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}</string>
+   </property>
+  </widget>
+  <widget class="QWidget" name="controlWidget" native="true">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>320</y>
+     <width>601</width>
+     <height>71</height>
+    </rect>
+   </property>
+   <widget class="QPushButton" name="playBtn">
+    <property name="geometry">
+     <rect>
+      <x>220</x>
+      <y>40</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton{
+border-color: #606060;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}
+
+QPushButton:focus{
+border-color: #800000;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}</string>
+    </property>
+    <property name="text">
+     <string>开始播放</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="continueBtn">
+    <property name="geometry">
+     <rect>
+      <x>300</x>
+      <y>40</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton{
+border-color: #606060;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}
+
+QPushButton:focus{
+border-color: #800000;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}</string>
+    </property>
+    <property name="text">
+     <string>播放</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="suspendBtn">
+    <property name="geometry">
+     <rect>
+      <x>130</x>
+      <y>40</y>
+      <width>75</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton{
+border-color: #606060;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}
+
+QPushButton:focus{
+border-color: #800000;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}</string>
+    </property>
+    <property name="text">
+     <string>暂停</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="screenShotBtn">
+    <property name="geometry">
+     <rect>
+      <x>380</x>
+      <y>40</y>
+      <width>51</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton{
+border-color: #606060;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}
+
+QPushButton:focus{
+border-color: #800000;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}</string>
+    </property>
+    <property name="text">
+     <string>截图</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="openBtn">
+    <property name="geometry">
+     <rect>
+      <x>440</x>
+      <y>40</y>
+      <width>61</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton{
+border-color: #606060;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}
+
+QPushButton:focus{
+border-color: #800000;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}</string>
+    </property>
+    <property name="text">
+     <string>打开文件</string>
+    </property>
+   </widget>
+   <widget class="MyHSlider" name="playSlider">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>10</y>
+      <width>471</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QSlider::groove:horizontal {  
+border: 1px solid #4A708B;  
+background: #C0C0C0;  
+height: 5px;  
+border-radius: 1px;  
+padding-left:-1px;  
+padding-right:-1px;  
+}  
+  
+QSlider::sub-page:horizontal {  
+background: qlineargradient(x1:0, y1:0, x2:0, y2:1,   
+    stop:0 #B1B1B1, stop:1 #c4c4c4);  
+background: qlineargradient(x1: 0, y1: 0.2, x2: 1, y2: 1,  
+    stop: 0 #5DCCFF, stop: 1 #1874CD);  
+border: 1px solid #4A708B;  
+height: 10px;  
+border-radius: 2px;  
+}  
+  
+QSlider::add-page:horizontal {  
+background: #575757;  
+border: 0px solid #777;  
+height: 10px;  
+border-radius: 2px;  
+}  
+  
+QSlider::handle:horizontal   
+{  
+    background: qradialgradient(spread:pad, cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5,   
+    stop:0.6 #45ADED, stop:0.778409 rgba(255, 255, 255, 255));  
+  
+    width: 11px;  
+    margin-top: -3px;  
+    margin-bottom: -3px;  
+    border-radius: 5px;  
+}  
+  
+QSlider::handle:horizontal:hover {  
+    background: qradialgradient(spread:pad, cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0.6 #2A8BDA,   
+    stop:0.778409 rgba(255, 255, 255, 255));  
+  
+    width: 11px;  
+    margin-top: -3px;  
+    margin-bottom: -3px;  
+    border-radius: 5px;  
+}  
+  
+QSlider::sub-page:horizontal:disabled {  
+background: #00009C;  
+border-color: #999;  
+}  
+  
+QSlider::add-page:horizontal:disabled {  
+background: #eee;  
+border-color: #999;  
+}  
+  
+QSlider::handle:horizontal:disabled {  
+background: #eee;  
+border: 1px solid #aaa;  
+border-radius: 4px;  
+}  </string>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Horizontal</enum>
+    </property>
+   </widget>
+   <widget class="QLabel" name="leftLable">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>40</y>
+      <width>71</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>00:00:00</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="rightLable">
+    <property name="geometry">
+     <rect>
+      <x>530</x>
+      <y>40</y>
+      <width>61</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>00:00:00</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="speedLessBtn">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>10</y>
+      <width>21</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton{
+border-color: #606060;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}
+
+QPushButton:focus{
+border-color: #800000;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}</string>
+    </property>
+    <property name="text">
+     <string>&lt;&lt;</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="speedMoreBtn">
+    <property name="geometry">
+     <rect>
+      <x>570</x>
+      <y>10</y>
+      <width>21</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QPushButton{
+border-color: #606060;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}
+
+QPushButton:focus{
+border-color: #800000;
+border-width: 2px;
+border-style: solid;
+color:#ffffff;
+}</string>
+    </property>
+    <property name="text">
+     <string>&gt;&gt;</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="speedLessLable">
+    <property name="geometry">
+     <rect>
+      <x>36</x>
+      <y>10</y>
+      <width>20</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>x1</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QLabel" name="speedMoreLeble">
+    <property name="geometry">
+     <rect>
+      <x>540</x>
+      <y>10</y>
+      <width>20</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>x1</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QSlider" name="voiceSlider">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>30</y>
+      <width>160</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">QSlider{
+border-color: #bcbcbc;
+}
+QSlider::groove:horizontal {                                
+     border: 1px solid #999999;                             
+     height: 1px;                                           
+    margin: 0px 0;                                         
+     left: 5px; right: 5px; 
+ }
+
+QSlider::handle:horizontal {                               
+     border: 0px ;                           
+     border-image:  url(:/NiceTalk/Images/Setting/volume_nor.png);
+     width: 15px;                                           
+     margin: -7px -7px -7px -7px;                  
+} 
+
+QSlider::add-page:horizontal{
+background: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0, stop:0 #bcbcbc, stop:0.25 #bcbcbc, stop:0.5 #bcbcbc, stop:1 #bcbcbc); 
+
+}
+
+QSlider::sub-page:horizontal{                               
+ background: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0, stop:0 #439cf3, stop:0.25 #439cf3, stop:0.5 #439cf3, stop:1 #439cf3);                     
+}</string>
+    </property>
+    <property name="maximum">
+     <number>100</number>
+    </property>
+    <property name="value">
+     <number>100</number>
+    </property>
+    <property name="orientation">
+     <enum>Qt::Horizontal</enum>
+    </property>
+    <property name="tickPosition">
+     <enum>QSlider::NoTicks</enum>
+    </property>
+   </widget>
+   <zorder>playSlider</zorder>
+   <zorder>leftLable</zorder>
+   <zorder>rightLable</zorder>
+   <zorder>speedLessBtn</zorder>
+   <zorder>speedMoreBtn</zorder>
+   <zorder>speedLessLable</zorder>
+   <zorder>speedMoreLeble</zorder>
+   <zorder>suspendBtn</zorder>
+   <zorder>playBtn</zorder>
+   <zorder>continueBtn</zorder>
+   <zorder>screenShotBtn</zorder>
+   <zorder>openBtn</zorder>
+   <zorder>voiceSlider</zorder>
+  </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>
@@ -60,6 +447,11 @@
    <class>McoGLWidget</class>
    <extends>QOpenGLWidget</extends>
    <header>mcoglwidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>MyHSlider</class>
+   <extends>QSlider</extends>
+   <header>myhslider.h</header>
   </customwidget>
  </customwidgets>
  <resources>

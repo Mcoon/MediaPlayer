@@ -1,7 +1,7 @@
 #ifndef MCOAVTOOL_H
 #define MCOAVTOOL_H
 
-#include <QMutex>
+#include <mutex>
 #include <string>
 #include <qlist.h>
 using namespace std;
@@ -10,6 +10,7 @@ struct AVFormatContext;
 struct AVPacket;
 struct AVFrame;
 struct SwsContext;
+struct SwrContext;
 struct AVCodecContext;
 struct AVCodecParameters;
 class McoAVTool
@@ -63,24 +64,37 @@ public:
     */
     bool getRGB(char *outdata,int width,int height);
 
+	/*
+	* 播放音频
+	*/
+	long long getPCM(char *outdata, int len);
+
+	//位移
+	bool seek(double pos);
+
 	qint64 getNextVideoTime();
 	qint64 getNextAudioTime();
 	qint64 getNextTime();
 
     string getErrorInfo();
-
 	int getWidth();
 	int getHeight();
 	int getDuration();
 	int getFps();
-
+	int getChannels();
+	int getSampleRate();
+	int getVideoStream();
+	int getAudioStream();
+	double getSpeed();
+	void setSpeed(double s);
 private:
 	void clearPacketLists(QList<AVPacket *> *l);
-    QMutex mutex;
+    mutex lock;
     AVFormatContext *ps = NULL;//封装的上下文
-    SwsContext *swsCtx;//转码器
-	AVCodecContext *vCodecContext;
-	AVCodecContext *aCodecContext;
+    SwsContext *swsCtx = NULL;//视频转码器
+	SwrContext *swrCtx = NULL;//音频解码器
+	AVCodecContext *vCodecContext = NULL;
+	AVCodecContext *aCodecContext = NULL;
     char errorBuff[1024];//错误信息数组
     int videoStream = -1;
     int audioStream = -1;
@@ -88,11 +102,16 @@ private:
 	int height = 0;
 	int duration = 0;
 	int fps = 0;
+	int sampleRate = 0;
+	int channels = 0;
+	int channelLayout = 0;
+	double speed = 1;
     AVPacket *pkt = NULL;
     AVFrame *vFrame = NULL;
     AVFrame *aFrame = NULL;
 	QList<AVPacket *> videoPacketList;
 	QList<AVPacket *> audioPacketList;
+
 };
 
 #endif // MCOAVTOOL_H

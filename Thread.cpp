@@ -1,20 +1,20 @@
 #include "Thread.h"
 #include <qimage.h>
 #include <iostream>
-
-extern "C"
-{
-#include <libavutil\time.h>
-}
-#pragma comment(lib,"avutil.lib")
+#include "mcosuper.h"
 
 using namespace std;
 
 
-Thread::Thread()
+Thread::Thread(McoAVTool *t, McoAudio *a)
 {
 	isSuspend = false;
 	isExited = false;
+	startTime = 0;
+	stopTime = 0;
+	tool = NULL;
+	tool = t;
+	audio = a;
 }
 
 
@@ -23,68 +23,83 @@ Thread::~Thread()
 {
 }
 
+bool Thread::startThread()
+{
+	if (!tool || !audio) return false;
+
+	if (!this->isRunning()) this->start();
+	startTime = McoSuper::getNowTime();
+	stopTime = 0;
+	isExited = false;
+	isSuspend = false;
+
+	return true;
+}
+
+void Thread::stopThread()
+{
+	isExited = true;
+}
+
 void Thread::run()
 {
 
 	bool isVideo;
 	qint64 time;
-	qint64 startTime = av_gettime() / 1000;//∫¡√Î
+	int vl, al;
+	char audioBuffer[10000];
 	while (!isExited)
 	{
-		while (isSuspend);
-		int vl, al;
-		if (!tool.readPacketsToBuff(20,&vl,&al)) return;
-		time = tool.getNextVideoTime();
-
-		if (time != -1)
+		if (!tool || !audio)
 		{
-			qint64 temp = av_gettime() / 1000;
-			temp -= startTime;
-			if (temp < time)
-				msleep(time - temp);
+			msleep(10);
+			continue;
+		}
+		if (isSuspend)
+		{
+			stopTime += 10;
+			msleep(10);
+			continue;
+		}
+		if (audio->getAudioFreeBytes() < 10000)
+		{
+			msleep(1);
+			continue;
 		}
 		
-
-		tool.autoDecoder(&isVideo);
+		if (!tool->readPacketsToBuff(20,&vl,&al)) break;
 		
+
+		qint64 t = tool->getNextVideoTime();
+		if (t != -1)
+		{
+			int nT = t / 1000;
+			if (nT != oT)
+			{
+				oT = nT;
+				emit videoTimeChanged(oT);
+			}
+		}
+
+		if(!tool->autoDecoder(&isVideo))
+		{
+			msleep(1);
+			continue;
+		}
+
+		if (!isVideo)
+		{
+			long long l =tool->getPCM(audioBuffer, 10000);
+			audio->writeToAudio(audioBuffer, l);
+		}
+
 	}
 
 }
 
-bool Thread::openAVFile(const char * url)
-{ 
-	bool ok = tool.openAVFile(url);
-	if (ok)
-	{
-		width = tool.getWidth();
-		height = tool.getHeight();
-		fps = tool.getFps();
-		duration = tool.getDuration();
-	}
-	isExited = false;
-	return ok;
-}
-
-bool Thread::openCodec()
-{
-	bool ok =  tool.openCodec();
-
-
-	return ok;
-}
-
-bool Thread::getRGB(char * outdata, int width, int height)
-{
-	return tool.getRGB(outdata,width,height);
-}
 
 void Thread::suspend(bool b)
 {
 	isSuspend = b;
 }
 
-void Thread::close()
-{
-	isExited = true;
-	wait(50);
-}

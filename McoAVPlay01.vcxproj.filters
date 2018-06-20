@@ -48,6 +48,12 @@
     <ClCompile Include="Thread.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="McoAudio.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="myhslider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="McoAVPlay01.h">
@@ -57,6 +63,9 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="Thread.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="myhslider.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>
@@ -75,6 +84,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="mcosuper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="McoAudio.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

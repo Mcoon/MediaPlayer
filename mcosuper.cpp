@@ -2,8 +2,10 @@
 extern "C"
 {
     #include <libavformat/avformat.h>
+	#include <libavutil\time.h>
 }
 #pragma comment(lib,"avformat.lib")
+#pragma comment(lib,"avutil.lib")
 McoSuper::McoSuper()
 {
     //注册所有封装格式
@@ -18,4 +20,10 @@ McoSuper *McoSuper::getObject()
 {
     static McoSuper m;
     return &m;
+}
+
+long long McoSuper::getNowTime()
+{
+	long long time = av_gettime() / 1000;
+	return time;
 }

@@ -6,13 +6,24 @@ using namespace std;
 
 McoGLWidget::McoGLWidget(QWidget *parent) : QOpenGLWidget(parent)
 {
+	tool = new McoAVTool;
+	audio = new McoAudio;
+	thread = new Thread(tool,audio);
 	image = NULL;
 	timer = new QTimer();
 	connect(timer, SIGNAL(timeout()), this, SLOT(play()));
+	connect(thread,SIGNAL(videoTimeChanged(int)),this,SIGNAL(videoTimeChanged(int)));
 }
 
 void McoGLWidget::paintEvent(QPaintEvent *e)
 {
+	//QPainter painter;
+	//painter.begin(this);
+	//QImage *i = new QImage("icon.png");
+	//
+	//painter.drawImage(QRect((width()- (i->width() / 3))/2,(height()-(i->height() / 3))/2, i->width()/3,i->height()/3),*i);
+	//painter.end();
+
     if(image != NULL)
     { 
 		QPainter painter;
@@ -20,6 +31,7 @@ void McoGLWidget::paintEvent(QPaintEvent *e)
 		painter.drawImage((width()- image->width())/2,(height() - image->height())/2, *image);
 		painter.end();
     }
+
 
 }
 
@@ -29,10 +41,8 @@ void McoGLWidget::resizeEvent(QResizeEvent * e)
 	if (image)
 	{
 		timer->stop();
-		thread.suspend(true);
 		updateImage();
-		thread.suspend(false);
-		timer->start(1000 / thread.fps);
+		timer->start(20);
 		play();
 	}
 
@@ -42,15 +52,15 @@ void McoGLWidget::resizeEvent(QResizeEvent * e)
 
 void McoGLWidget::startPlay()
 {
-	timer->start(1000/thread.fps);
-	thread.start();
+	timer->start(20);
+	thread->startThread();
 }
 
 void McoGLWidget::suspend(bool b)
 {
 	if(b) timer->stop();
-	else timer->start(1000 / thread.fps);
-	thread.suspend(b);
+	else timer->start(20);
+	thread->suspend(b);
 }
 
 void McoGLWidget::saveScreenShot(char * saveurl)
@@ -65,12 +75,15 @@ void McoGLWidget::saveScreenShot(char * saveurl)
 	if (image->save(saveurl)) QMessageBox::information(this,"save success","success","ok");
 	else QMessageBox::critical(this,"save error", "error,try again", "ok");
 	suspend(false);
-	timer->start(1000 / thread.fps);
+	timer->start(20);
 	play();
 }
 
 void McoGLWidget::updateImage()
 {
+
+	if (tool->getWidth() == 0 || tool->getHeight() == 0 || width() == 0 || height() == 0) return;
+
 	if (image)
 	{
 		delete image->bits();
@@ -81,14 +94,17 @@ void McoGLWidget::updateImage()
 	{
 		int w = width();
 		int h = height();
-		if (w * thread.height > h * thread.width)
+		if (w * tool->getHeight() > h * tool->getWidth())
 		{
-			w = h * thread.width / thread.height;
+			w = h * tool->getWidth() / tool->getHeight();
 		}
 		else
 		{
-			h = w * thread.height / thread.width;
+			h = w * tool->getHeight() / tool->getWidth();
 		}
+
+		w = (w >> 4) << 4;
+		h = (h >> 4) << 4;
 
 		uchar *buf = new uchar[w * h * 4];
 		image = new QImage(buf, w, h, QImage::Format_ARGB32);
@@ -97,39 +113,93 @@ void McoGLWidget::updateImage()
 	
 }
 
-void McoGLWidget::close()
+double McoGLWidget::getSpeed()
 {
+	return tool->getSpeed();
+}
+
+void McoGLWidget::setSpeed(double s)
+{
+	tool->setSpeed(s);
+	if (tool->getAudioStream() != -1) audio->initAudio(tool->getSampleRate(), tool->getChannels());
+}
+
+void McoGLWidget::closeMedia()
+{
+	thread->stopThread();
+	audio->freeAudio();
+	tool->closeAVFile();
 	timer->stop();
-	thread.close();
+}
+
+bool McoGLWidget::seekMedia(double pos)
+{
+	return tool->seek(pos);
+}
+
+double McoGLWidget::getPos()
+{
+	int dur = tool->getDuration();
+	if (dur <= 0)
+		return 0;
+	int now = tool->getNextVideoTime();
+	if (now < 0)
+		return 0;
+	double re = (double)now / (double)dur;
+	return re;
+}
+
+int McoGLWidget::getNowTime()
+{
+	return tool->getNextVideoTime() / 1000;
+}
+
+int McoGLWidget::getMediaTime()
+{
+	return tool->getDuration() / 1000;
+}
+
+void McoGLWidget::setVoiceNum(double v)
+{
+	audio->setVoiceNum(v);
+}
+
+double McoGLWidget::getVoiceNum()
+{
+	return audio->getVoiceNum();
 }
 
 void McoGLWidget::play()
 {
 	if (!image) return;
+	if (!tool->getRGB((char*)image->bits(), image->width(), image->height())) return;
 	
-		bool ok = thread.getRGB((char*)image->bits(), image->width(), image->height());
-		if (ok)
-		{
-			update();
-		}
+	update();
 }
 
-bool McoGLWidget::initGL(const char *url)
+bool McoGLWidget::openMedia(QString path)
 {
-	timer->stop();
-	if (!thread.openAVFile(url))
+	closeMedia();
+	if (!tool->openAVFile(path.toStdString().c_str()))
 	{
-		//cout << thread.getErrorInfo() << endl;
 		return false;
 	}
-	if (!thread.openCodec())
+	if (tool->getAudioStream() != -1)
 	{
-		
-		//cout << thread.getErrorInfo() << endl;
+		if (!audio->initAudio(tool->getSampleRate(), tool->getChannels()))
+			return false;
+	}
+	if (!tool->openCodec())
+	{
+		return false;
+	}
+	if (!thread->startThread())
+	{
 		return false;
 	}
 
 	updateImage();
+	timer->start(20);
 
 
 	return true;

@@ -3,31 +3,31 @@
 
 #include <QThread>
 #include "mcoavtool.h"
-#include <qtimer.h>
-
+#include "McoAudio.h"
 class Thread : public QThread
 {
 	Q_OBJECT
 public:
-	McoAVTool tool;
-	Thread();
+	Thread(McoAVTool *t,McoAudio *a);
 	~Thread();
-	virtual void run();
-	bool openAVFile(const char *url);
-	bool openCodec();
-	bool getRGB(char *outdata, int width, int height);
-	int width = 0;
-	int height = 0;
-	int duration = 0;
-	int fps = 0;
+
+	bool startThread();
+	void stopThread();
 	void suspend(bool b);
-	void close();
+
+protected:
+	virtual void run();
 private:
+	McoAVTool * tool;
+	McoAudio *audio;
+	int oT = 0; //¾ÉµÄÊ±¼ä
 	bool isSuspend;
 	bool isExited;
+	qint64 startTime;
+	qint64 stopTime;
 
 signals:
-	void sendMsg();
+	void videoTimeChanged(int time);
 
 };
 
