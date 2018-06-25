@@ -209,7 +209,7 @@ void McoAVPlay01::SpeedChangedLower()
 	ui.speedMoreLeble->setText(str);
 	ui.speedLessLable->setText(str);
 }
-
+ 
 void McoAVPlay01::VoiceNumChangde()
 {
 	ui.openGLWidget->setVoiceNum((double)ui.voiceSlider->value() / (double)ui.voiceSlider->maximum());
