@@ -3,14 +3,17 @@
 #include <qfiledialog.h>
 #include <QPropertyAnimation>
 using namespace std;
+
 QString fileName;
 bool isPlaying = false;
 bool isHide = false;
 QPropertyAnimation *anim = NULL;
 double speed = 1;
+
 McoAVPlay01::McoAVPlay01(QWidget *parent)
 	: QWidget(parent)
 {
+	setWindowIcon(QIcon("icon.png"));
 	setMinimumSize(672, 488);
 	//setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
 	ui.setupUi(this);
@@ -21,7 +24,7 @@ McoAVPlay01::McoAVPlay01(QWidget *parent)
 	connect(ui.screenShotBtn, SIGNAL(clicked()), this, SLOT(screenShot()));
 	connect(ui.openGLWidget,SIGNAL(videoTimeChanged(int)),this,SLOT(videoTimeChangedSlot(int)));
 	connect(ui.playSlider, SIGNAL(sliderPressed()), this, SLOT(sliderValueChanged()));
-	connect(ui.voiceSlider, SIGNAL(valueChanged(int)), this, SLOT(VoiceNumChangde(int)));
+	connect(ui.voiceSlider, SIGNAL(sliderPressed()), this, SLOT(VoiceNumChangde()));
 	connect(ui.speedLessBtn, SIGNAL(clicked()), this, SLOT(SpeedChangedLower()));
 	connect(ui.speedMoreBtn, SIGNAL(clicked()), this, SLOT(SpeedChangedBigger()));
 	fileName = "";
@@ -39,6 +42,7 @@ McoAVPlay01::McoAVPlay01(QWidget *parent)
 	anim = new QPropertyAnimation(ui.controlWidget, "pos");
 	
 }
+
 void McoAVPlay01::startPlay()
 {
 	if (fileName.length() == 0)
@@ -100,6 +104,7 @@ void McoAVPlay01::screenShot()
 
 void McoAVPlay01::resizeEvent(QResizeEvent * e)
 {
+	if (isHide) isHide = false;
 	ui.openGLWidget->resize(QSize(width(), height()));
 	ui.controlWidget->setGeometry(0, height() - 66, width(), 66);
 	ui.rightLable->setGeometry(width() - ui.leftLable->width() - 10, ui.leftLable->y(), ui.leftLable->width(), ui.leftLable->height());
@@ -205,9 +210,7 @@ void McoAVPlay01::SpeedChangedLower()
 	ui.speedLessLable->setText(str);
 }
 
-void McoAVPlay01::VoiceNumChangde(int)
+void McoAVPlay01::VoiceNumChangde()
 {
-	ui.openGLWidget->setVoiceNum((double)ui.voiceSlider->value());
+	ui.openGLWidget->setVoiceNum((double)ui.voiceSlider->value() / (double)ui.voiceSlider->maximum());
 }
-
-

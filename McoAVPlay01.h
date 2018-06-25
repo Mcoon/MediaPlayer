@@ -27,6 +27,6 @@ private slots:
 	void sliderValueChanged();
 	void SpeedChangedBigger();
 	void SpeedChangedLower();
-	void VoiceNumChangde(int);
+	void VoiceNumChangde();
 	
 };
